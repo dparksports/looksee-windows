@@ -29,7 +29,19 @@ namespace LookSee.Models
         public string LocalEndpoint { get; set; }
 
         public string Sni { get; set; }
-        public string HostDisplay => string.IsNullOrEmpty(Sni) ? "(no SNI)" : Sni;
+        public string HostDisplay => (BlockedByRule ? "⛔ " : "") +
+            (string.IsNullOrEmpty(Sni) ? "(no SNI)" : Sni);
+
+        /// <summary>True when this destination is covered by an AC-BLOCK
+        /// firewall rule (live knowledge from FirewallBlockService — rules
+        /// created by LookSee or AutoCommand, same scheme). Raises
+        /// HostDisplay so the ⛔ mark appears live when blocks change.</summary>
+        public bool BlockedByRule
+        {
+            get => _blockedByRule;
+            set { if (SetField(ref _blockedByRule, value)) OnPropertyChanged(nameof(HostDisplay)); }
+        }
+        private bool _blockedByRule;
 
         public string TlsVersion { get; set; }
         public string Alpn { get; set; }

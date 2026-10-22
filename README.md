@@ -2,7 +2,7 @@
 
 **Your computer is having a thousand small conversations right now — updates phoning home, browsers chattering, mystery programs beeping quietly into the dark. LookSee shows you all of it, in plain English, without changing a single thing.**
 
-LookSee is a free, open-source app for Windows that watches what your PC does — who's talking to whom, who launched what, what arrived overnight — explains each thing in everyday words, and remembers what it saw so yesterday's mystery is still solvable tomorrow. It looks; it never stops anything. It sends nothing anywhere, costs nothing, and deleting the folder uninstalls it completely.
+LookSee is a free, open-source app for Windows that watches what your PC does — who's talking to whom, who launched what, what arrived overnight — explains each thing in everyday words, and remembers what it saw so yesterday's mystery is still solvable tomorrow. And when a row deserves a stop, the stop is right there: one confirmed click, one visible undo. It sends nothing anywhere, costs nothing, and deleting the folder uninstalls it completely.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
@@ -14,7 +14,7 @@ It started with a genuinely unsettling message on a real machine: **"svchost.exe
 
 The answer turned out to be one row of data — it was Chrome's updater, downloading from Google's own servers — but getting that one row required tools aimed at forensics professionals, and the scary message arrived long before the reassurance did.
 
-So the app was built around a simple conviction: **you shouldn't need to be a forensic analyst to know what your own computer is doing.** Every program that talks to the internet, on one screen, explained in plain English, with the history kept so the question you have *tomorrow* about *yesterday* still has an answer. And because the scariest failures of security tools are the ones where they break your machine while "protecting" it, LookSee was made watch-only from the first line: it observes, it explains, it remembers — it never stops anything. There is nothing to un-break.
+So the app was built around a simple conviction: **you shouldn't need to be a forensic analyst to know what your own computer is doing.** Every program that talks to the internet, on one screen, explained in plain English, with the history kept so the question you have *tomorrow* about *yesterday* still has an answer. And because the scariest failures of security tools are the ones where they break your machine while "protecting" it, every stopping action in LookSee carries its own confirmation, its own per-target undo, and a 🚑 panic button in the status bar that brings the whole internet back in one click. Blocks use the same rule scheme as its sibling AutoCommand, so either app can undo what the other blocked.
 
 Keep your antivirus; it does a different job. This is the piece it never gives you: **visibility**.
 
@@ -70,7 +70,7 @@ One rule everywhere: **feeds keep recording while you're on another tab** — a 
 
 Real example, from this app's sibling's development machine: *"svchost.exe is uploading packets"* sounds alarming — it turned out to be Chrome's updater downloading from Google's own servers, and one row proved it. No panic, no reinstall, no forum archaeology at midnight.
 
-And because LookSee only ever *looks*, there is nothing to un-break: no blocks to undo, no firewall to restore, no "I clicked something and the internet died." The one thing it can change — telemetry pins in **Black Hole** — un-pins from the same screen, one click.
+Right-click any row for the full action set, identical to AutoCommand's Process Monitor: **Trace** (everything recorded about that instance), **Ignore** (hide it everywhere, reversible), **Block IP** / **Block process** (confirmed, provenance written into the rule, one click to undo), **Kill** (with a stale-PID guard), and **Copy row**. Blocked destinations wear a ⛔ so a silent row explains itself; the 🚑 **Restore Internet** button in the status bar undoes every block at once, with the DNS cache flushed for you.
 
 ## Your privacy, in one sentence
 
@@ -78,7 +78,7 @@ Everything happens on your computer; LookSee talks to no one, and everything it 
 
 ## LookSee and AutoCommand
 
-LookSee is the watch-only lens from [AutoCommand](https://github.com/dparksports/autocommand-windows) — same author, same plain-English ethos, same undo-first design — distilled to pure visibility. If you want to *stop* things (firewall presets, one-click blocks, an invited AI second opinion), that's what AutoCommand is for; the two apps run side by side without sharing state.
+LookSee is the everyday lens from [AutoCommand](https://github.com/dparksports/autocommand-windows) — same author, same plain-English ethos, same undo-first design — distilled to one screen that answers "what is this PC doing?" AutoCommand remains the full toolkit (firewall presets, the Blocks tab, an invited AI second opinion). The two share one block scheme, so blocks made in either app are visible (⛔), unblockable and panic-restorable from both. A one-time, one-way import also carries your AutoCommand ignore lists into LookSee; AutoCommand itself is never modified.
 
 ## Downloads
 

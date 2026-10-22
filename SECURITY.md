@@ -1,11 +1,12 @@
 # Security policy
 
-LookSee is a visibility tool — it watches processes, connections and Windows settings, instruments TLS only for environments you explicitly opt in, and records history with Sysmon. Reports against the tool itself are taken seriously and handled privately.
+LookSee is a visibility-first tool — it watches processes, connections and Windows settings, instruments TLS only for environments you explicitly opt in, records history with Sysmon, and can create firewall block rules from its row menu (confirmed, provenance-carrying, one scheme shared with AutoCommand). Reports against the tool itself are taken seriously and handled privately.
 
 ## What counts as a security issue here
 
 Broadly: anything that lets malware, an unprivileged user, or a remote party **bypass, abuse, or weaponize** LookSee's own machinery. For example:
 
+- A way to make the app create/alter firewall block rules without the confirmation flow, or to strip the provenance the rules carry
 - Weaknesses in the TLS keylog handling (`%LOCALAPPDATA%\LookSee\pytrace\sslkeys.log` — ACL bypass, leaking to other users, surviving app exit) or in the decrypted-traffic archive's ACLs
 - Injecting a fake python environment or audit-hook payload that gets installed with elevated rights
 - Getting the intercept stack (proxy, CA trust, QUIC rule) to run against a target you did not explicitly select, or to survive a crash without rollback

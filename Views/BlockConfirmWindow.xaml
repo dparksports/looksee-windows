@@ -1,0 +1,28 @@
+<Window x:Class="LookSee.Views.BlockConfirmWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Confirm block"
+        Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource SurfaceBrush}"
+        ShowInTaskbar="False">
+    <StackPanel Margin="20">
+        <TextBlock x:Name="HeadText" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+        <Border x:Name="WarningBorder" Background="#26FBBF24" BorderBrush="#FBBF24" BorderThickness="1"
+                CornerRadius="4" Padding="10,6" Margin="0,12,0,0">
+            <TextBlock x:Name="WarningText" TextWrapping="Wrap" FontSize="12" Foreground="#FBBF24"/>
+        </Border>
+        <TextBlock x:Name="DetailText" TextWrapping="Wrap" Margin="0,12,0,0" FontSize="12"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <CheckBox x:Name="SuppressCheck" Margin="0,14,0,0" FontSize="12"
+                  Foreground="{DynamicResource TextPrimaryBrush}"
+                  ToolTip="Applies to this class of block only. Undo anytime: 'Ignore lists…' → 'Reset don't-ask-again choices'."/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="Cancel" IsCancel="True" Padding="16,4" Margin="0,0,8,0"/>
+            <Button x:Name="BlockBtn" Content="⛔ Block" Style="{StaticResource PrimaryButton}"
+                    IsDefault="True" Padding="16,4" Click="BlockBtn_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

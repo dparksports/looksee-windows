@@ -63,6 +63,32 @@ namespace LookSee
                 Dispatcher.Invoke(() => _trayNotifier.ShowSecurityAlert(title, message));
 
             _enforcer.Start();
+
+            // One-time, one-way import from a sibling AutoCommand install:
+            // its ignore lists (so this machine's curated "don't show me"
+            // choices carry over) and a read-only snapshot of its block
+            // inventory (so rows can wear the ⛔ badge). Silent no-op when
+            // AutoCommand isn't on the machine — LookSee is fully standalone.
+            _ = RunFirstRunAutoCommandImportAsync();
+        }
+
+        private async System.Threading.Tasks.Task RunFirstRunAutoCommandImportAsync()
+        {
+            try
+            {
+                if (Services.AutoCommandImportService.AlreadyImported) return;
+                var r = await Services.AutoCommandImportService.ImportAsync();
+                if (r is { FoundAutoCommand: true } && r.NamesImported + r.ImagesImported > 0)
+                    Dispatcher.Invoke(() => _trayNotifier?.ShowSecurityAlert(
+                        "⇄ Imported from AutoCommand",
+                        $"+{r.NamesImported} ignored process(es), +{r.ImagesImported} ignored app(s) carried over. " +
+                        "AutoCommand itself was not changed.",
+                        durationMs: 12000));
+                // Prime the ⛔ block badges while we're here.
+                await System.Threading.Tasks.Task.Run(
+                    () => Services.FirewallBlockService.Instance.RefreshSnapshot());
+            }
+            catch { /* the bridge must never disturb startup */ }
         }
 
         private void BringWindowToForeground()
@@ -193,6 +219,69 @@ namespace LookSee
             // The button always offers the look you'd switch TO.
             bool isLight = Services.ThemeService.Saved == "Light";
             ThemeToggleBtn.Content = isLight ? "🌙 Dark" : "☀ Light";
+        }
+
+        // ── Emergency internet restore (panic button) ───────────────────────
+        //
+        // The #1 self-inflicted outage from blocking is blocking svchost/DNS
+        // or a Microsoft endpoint. This disables every block rule created by
+        // LookSee or AutoCommand (they share one scheme) in one click —
+        // reversible, nothing deleted. AutoCommand's Process Monitor ships
+        // the same button with the same behavior.
+
+        private async void RestoreInternetBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var confirm = MessageBox.Show(
+                "Restore internet access?\n\n" +
+                "This DISABLES every firewall block rule created by LookSee or AutoCommand\n" +
+                "(they share one block scheme — IP and process blocks, including legacy ones).\n" +
+                "Nothing is deleted; re-enable blocks from wf.msc, or AutoCommand → Blocks\n" +
+                "→ Manage all.\n\n" +
+                "If this does not restore connectivity, the block came from another tool\n" +
+                "or a proxy/VPN — this button only touches LookSee/AutoCommand rules.",
+                "🚑 Restore Internet", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes) return;
+
+            RestoreInternetBtn.IsEnabled = false;
+            try
+            {
+                var result = await Services.FirewallBlockService.Instance
+                    .SetAllBlocksEnabledAsync(false);
+
+                // A stale DNS cache keeps sites dead even after the block is
+                // lifted — flush it automatically so recovery is one click.
+                string dnsNote;
+                try
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo("ipconfig", "/flushdns")
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true
+                    };
+                    using var p = System.Diagnostics.Process.Start(psi);
+                    p.StandardOutput.ReadToEnd();
+                    p.WaitForExit(5000);
+                    dnsNote = p.ExitCode == 0
+                        ? "The DNS cache was flushed automatically — no further steps needed."
+                        : $"ipconfig /flushdns returned exit code {p.ExitCode}; run it manually if sites still fail.";
+                }
+                catch (Exception ex)
+                {
+                    dnsNote = $"Could not flush DNS automatically ({ex.Message}); run  ipconfig /flushdns  manually.";
+                }
+
+                string extra = result.FirstError != null ? $"\nFirst error: {result.FirstError}" : "";
+                MessageBox.Show(
+                    $"Disabled {result.Changed} of {result.Matched} block rule(s).{extra}\n\n" +
+                    $"{dnsNote}\n\n" +
+                    "To bring selected blocks back (wf.msc, or AutoCommand → Blocks → Manage all):\n" +
+                    "  · 'Restore except Microsoft/Windows' — recommended: brings back your\n" +
+                    "    real blocks, leaves the breakage-causing ones (red rows) off\n" +
+                    "  · 'Re-enable all' — everything back on",
+                    "🚑 Restore Internet", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            finally { RestoreInternetBtn.IsEnabled = true; }
         }
 
         protected override void OnClosed(EventArgs e)

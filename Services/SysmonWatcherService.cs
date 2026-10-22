@@ -33,7 +33,11 @@ namespace LookSee.Services
         // Processes the user asked to keep out of the list, matched on the
         // image file name (e.g. "chrome.exe"), case-insensitively.
         private readonly ConcurrentBag<string> _ignoredProcesses = new ConcurrentBag<string>();
-        private const string IgnoredProcessesPath = "ignored_processes.txt";
+        // Resolved against the exe's own folder — a relative name would
+        // silently follow the working directory the app happened to be
+        // launched from, and the ignore list would load empty.
+        private static string IgnoredProcessesPath =>
+            System.IO.Path.Combine(AppContext.BaseDirectory, "ignored_processes.txt");
 
         public SysmonWatcherService(
             ConcurrentDictionary<string, SvchostMonitorItem> trackedIps,
@@ -145,6 +149,68 @@ namespace LookSee.Services
                 }
                 return _fileIgnored.Contains(normalized);
             }
+        }
+
+        /// <summary>Adds a process name to the shared ignore file. Used by
+        /// row menus and the AutoCommand import — resets the read cache so
+        /// the change applies immediately everywhere.</summary>
+        public static void AddToIgnoreFile(string processName)
+        {
+            string normalized = NormalizeProcessName(processName);
+            if (normalized.Length == 0) return;
+            lock (_fileIgnoreLock)
+            {
+                var set = ReadIgnoreFile();
+                if (set.Add(normalized)) WriteIgnoreFile(set);
+                _fileIgnored = set;
+                _fileIgnoredLoadedUtc = DateTime.UtcNow;
+            }
+        }
+
+        /// <summary>Removes a process name from the shared ignore file.</summary>
+        public static void RemoveFromIgnoreFile(string processName)
+        {
+            string normalized = NormalizeProcessName(processName);
+            if (normalized.Length == 0) return;
+            lock (_fileIgnoreLock)
+            {
+                var set = ReadIgnoreFile();
+                if (set.Remove(normalized)) WriteIgnoreFile(set);
+                _fileIgnored = set;
+                _fileIgnoredLoadedUtc = DateTime.UtcNow;
+            }
+        }
+
+        /// <summary>Current contents of the ignore file, sorted, for the editor UI.</summary>
+        public static List<string> IgnoreFileSnapshot()
+        {
+            lock (_fileIgnoreLock)
+                return ReadIgnoreFile().OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static HashSet<string> ReadIgnoreFile()
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (string line in File.ReadAllLines(IgnoredProcessesPath))
+                {
+                    string n = NormalizeProcessName(line);
+                    if (n.Length > 0) set.Add(n);
+                }
+            }
+            catch { /* missing or unreadable file — empty list */ }
+            return set;
+        }
+
+        private static void WriteIgnoreFile(HashSet<string> set)
+        {
+            try
+            {
+                File.WriteAllLines(IgnoredProcessesPath,
+                    set.OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+            }
+            catch { /* read-only medium — the in-memory list still applies */ }
         }
 
         private void LoadIgnoredProcesses()

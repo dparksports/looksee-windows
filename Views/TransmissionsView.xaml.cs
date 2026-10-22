@@ -34,6 +34,7 @@ namespace LookSee.Views
 
         private readonly ObservableCollection<TransmissionRecord> _rows = new();
         private readonly Dictionary<string, TransmissionRecord> _rowById = new();
+        private int _zeroReplyCount;
 
         private TransmissionsPipelineService _pipeline;
         private bool _initialized;
@@ -41,6 +42,7 @@ namespace LookSee.Views
         private bool _backfilled;
         private Regex _filter;
         private bool _bigOnly = true;
+        private bool _zeroReplyOnly;
 
         private TransmissionRecord _selected;
         private List<HttpStreamDecoder.HttpMessage> _messages = new();
@@ -89,6 +91,11 @@ namespace LookSee.Views
             _pipeline.OnRecord += OnRecord;
             _pipeline.OnError += ShowError;
             _pipeline.OnBigEncryptedUpload += OnBigEncryptedUpload;
+
+            // Block states power the ⛔ badges and the menu's
+            // block/unblock flip — prime them off the UI thread so the
+            // first row already knows what is blocked.
+            _ = Task.Run(() => FirewallBlockService.Instance.RefreshSnapshot());
 
             InterceptProxyService.Shared.OnSessionEnded += OnInterceptSessionEnded;
             InterceptProxyService.Shared.OnStatus += message =>
@@ -169,21 +176,35 @@ namespace LookSee.Views
         private void AddRow(TransmissionRecord record)
         {
             if (_rowById.ContainsKey(record.Id)) return;
+            // ⛔ badge: destination covered by an active AC-BLOCK rule
+            // (created here or by AutoCommand — same scheme, live states).
+            record.BlockedByRule =
+                FirewallBlockService.Instance.IpState(record.RemoteIp) == FirewallBlockService.BlockState.Active ||
+                FirewallBlockService.Instance.AppState(record.Image) == FirewallBlockService.BlockState.Active;
             _rowById[record.Id] = record;
             _rows.Add(record);
+            if (IsZeroReply(record)) _zeroReplyCount++;
             while (_rows.Count > RowCap)
             {
                 var oldest = _rows[^1];
                 _rows.RemoveAt(_rows.Count - 1);
+                if (IsZeroReply(oldest)) _zeroReplyCount--;
                 if (_rowById.TryGetValue(oldest.Id, out var row) && row == oldest) _rowById.Remove(oldest.Id);
             }
             UpdateStatus();
         }
 
+        /// <summary>The lens the checkbox names: sent something, never
+        /// heard one word back. That shape is what a blocked outbound call
+        /// or a dead-end beacon looks like — a lens, not a verdict.</summary>
+        private static bool IsZeroReply(TransmissionRecord record) =>
+            record.ClientBytes > 0 && record.ServerBytes == 0;
+
         private void ClearBtn_Click(object sender, RoutedEventArgs e)
         {
             _rows.Clear();
             _rowById.Clear();
+            _zeroReplyCount = 0;
             _selected = null;
             _messages = new();
             DetailRecordPanel.Children.Clear();
@@ -214,6 +235,7 @@ namespace LookSee.Views
         private void ApplyFilter(object sender, RoutedEventArgs e)
         {
             _bigOnly = BigOnlyCheck.IsChecked == true;
+            _zeroReplyOnly = ZeroReplyCheck.IsChecked == true;
             CollectionViewSource.GetDefaultView(_rows).Refresh();
         }
 
@@ -221,6 +243,7 @@ namespace LookSee.Views
         {
             if (obj is not TransmissionRecord record) return false;
             if (_bigOnly && !record.BigUpload) return false;
+            if (_zeroReplyOnly && !IsZeroReply(record)) return false;
             if (_filter == null) return true;
             return _filter.IsMatch($"{record.Image} {record.Sni} {record.RemoteIp} {record.Provider} {record.Status}");
         }
@@ -1015,6 +1038,10 @@ namespace LookSee.Views
 
         private void UpdateStatus()
         {
+            if (ZeroReplyCheck != null)
+                ZeroReplyCheck.Content = _zeroReplyOnly
+                    ? "⚪ zero-reply (on)"
+                    : $"⚪ zero-reply ({_zeroReplyCount})";
             if (StatusText == null || _pipeline == null) return;
             if (!_watching)
             {
@@ -1046,7 +1073,393 @@ namespace LookSee.Views
                 PopupEnableKeysBtn.Visibility = keysOn ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        /// <summary>Agent-facing summary — metadata only, never bodies
-        /// (credentials and tokens ride inside decrypted content).</summary>
+        // -----------------------------------------------------------------------
+        // Row menu — the exact Process Monitor action set, copied from
+        // AutoCommand: Block/Unblock IP (2-rule v2 scheme), Block/Unblock
+        // process, Ignore, Trace, Kill. Same confirmations, same per-class
+        // "don't ask again", same rule names — so AutoCommand's Blocks tab
+        // manages LookSee's blocks and vice versa.
+        // -----------------------------------------------------------------------
+
+        private void RowMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            var record = FlowGrid.SelectedItem as TransmissionRecord;
+            FirewallBlockService.Instance.RefreshSnapshot(); // one COM pass — states are live
+
+            string procName = record == null || string.IsNullOrEmpty(record.Image)
+                ? "" : Path.GetFileName(record.Image);
+
+            TraceMenuItem.IsEnabled = record is { Pid: > 0 };
+            TraceMenuItem.Header = record is { Pid: > 0 }
+                ? $"🔎 Trace PID {record.Pid}…" : "🔎 Trace (unattributed row)";
+
+            IgnoreProcMenuItem.IsEnabled = procName.Length > 0;
+            IgnoreProcMenuItem.Header = procName.Length > 0
+                ? $"🚫 Ignore process '{procName}'" : "🚫 Ignore process (no row selected)";
+
+            // Block items tell the current state: flip to Unblock when a
+            // block exists, and explain (disabled) when it is only paused —
+            // re-blocking a paused target would silently not block anything.
+            bool validIp = record != null && !string.IsNullOrEmpty(record.RemoteIp) &&
+                           System.Net.IPAddress.TryParse(record.RemoteIp, out _);
+            var ipState = record == null ? FirewallBlockService.BlockState.None
+                                         : FirewallBlockService.Instance.IpState(record.RemoteIp);
+            if (validIp && ipState == FirewallBlockService.BlockState.Active)
+            {
+                BlockIpMenuItem.IsEnabled = true;
+                BlockIpMenuItem.Header = $"✅ Unblock remote IP {record.RemoteIp} — traffic resumes";
+            }
+            else if (validIp && ipState == FirewallBlockService.BlockState.Paused)
+            {
+                BlockIpMenuItem.IsEnabled = false;
+                BlockIpMenuItem.Header = $"⏸ IP block for {record.RemoteIp} is paused — re-enable from AutoCommand → Blocks → Manage all (or wf.msc)";
+            }
+            else
+            {
+                BlockIpMenuItem.IsEnabled = validIp;
+                BlockIpMenuItem.Header = validIp
+                    ? $"⛔ Block remote IP {record.RemoteIp} in Firewall"
+                    : "⛔ Block Remote IP in Firewall";
+            }
+
+            bool blockableProcess = record is { Pid: > 0 } && !string.IsNullOrEmpty(record.Image);
+            var appState = record == null ? FirewallBlockService.BlockState.None
+                                          : FirewallBlockService.Instance.AppState(record.Image);
+            if (blockableProcess && appState == FirewallBlockService.BlockState.Active)
+            {
+                BlockAppMenuItem.IsEnabled = true;
+                BlockAppMenuItem.Header = $"✅ Unblock process '{procName}' — traffic resumes";
+            }
+            else if (blockableProcess && appState == FirewallBlockService.BlockState.Paused)
+            {
+                BlockAppMenuItem.IsEnabled = false;
+                BlockAppMenuItem.Header = "⏸ Process block is paused — re-enable from AutoCommand → Blocks → Manage all (or wf.msc)";
+            }
+            else
+            {
+                BlockAppMenuItem.IsEnabled = blockableProcess;
+                BlockAppMenuItem.Header = blockableProcess
+                    ? $"⛔ Block process '{procName}' in Firewall" : "⛔ Block Process in Firewall";
+            }
+
+            KillMenuItem.IsEnabled = record is { Pid: > 0 };
+            KillMenuItem.Header = KillMenuItem.IsEnabled && procName.Length > 0
+                ? $"💀 Kill process '{procName}' (PID {record.Pid})" : "💀 Kill process";
+        }
+
+        private void TraceMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (FlowGrid.SelectedItem is not TransmissionRecord { Pid: > 0 } record) return;
+            string name = string.IsNullOrEmpty(record.Image)
+                ? "" : Path.GetFileNameWithoutExtension(record.Image);
+            var win = new ProcessTraceWindow(record.Pid, name, record.Image, null,
+                record.TsUtc, record.TsUtc)
+            { Owner = Window.GetWindow(this) };
+            win.Show();
+        }
+
+        private void IgnoreProcMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (FlowGrid.SelectedItem is not TransmissionRecord record ||
+                string.IsNullOrEmpty(record.Image)) return;
+            string name = Path.GetFileName(record.Image);
+            if (MessageBox.Show(
+                    $"Ignore '{name}' everywhere?\n\n" +
+                    "· This tab: no more encrypted-upload toasts or suggestions (rows stay)\n" +
+                    "· Every other feed and the Phone Bill: the process stops being listed\n\n" +
+                    "Reversible any time from 🔕 Ignore lists….",
+                    "Ignore this app", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            TransmissionsIgnoreList.Ignore(record.Image);
+            SysmonWatcherService.AddToIgnoreFile(name);
+            StatusText.Text = $"🔕 '{name}' ignored everywhere (undo: Ignore lists…).";
+            RenderDetail(record); // refresh the detail pane's ignore buttons
+        }
+
+        private async void BlockIpMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (FlowGrid.SelectedItem is not TransmissionRecord record) return;
+
+            string ip = record.RemoteIp;
+            if (!System.Net.IPAddress.TryParse(ip, out _))
+            {
+                MessageBox.Show($"'{ip}' is not a valid IP address.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // The menu flips to "Unblock" once a block exists — the same
+            // item removes it again.
+            var state = FirewallBlockService.Instance.IpState(ip);
+            if (state == FirewallBlockService.BlockState.Active)
+            {
+                await ConfirmAndRemoveBlockAsync("ip", ip, record.Image);
+                return;
+            }
+            if (state == FirewallBlockService.BlockState.Paused)
+            {
+                StatusText.Text = $"⏸ The block for {ip} is paused (traffic flows). Re-enable it from AutoCommand → Blocks → Manage all.";
+                return;
+            }
+
+            string msWarning = IpClassifier.WarningText(ip); // "" when not Microsoft infrastructure
+            bool msApplies = msWarning.Length > 0;
+
+            // Per-class suppression: the prompt is skipped only when the
+            // generic confirm AND (if applicable) the Microsoft-infra warning
+            // are both silenced — a silenced generic confirm still shows the
+            // dialog when the infra warning itself is not silenced.
+            bool confirmSuppressed =
+                ConfirmPrefs.IsSuppressed(ConfirmPrefs.ConfirmIp) &&
+                (!msApplies || ConfirmPrefs.IsSuppressed(ConfirmPrefs.WarnMsInfra));
+
+            if (!confirmSuppressed)
+            {
+                string warning = msApplies && !ConfirmPrefs.IsSuppressed(ConfirmPrefs.WarnMsInfra)
+                    ? msWarning + "\n\n⚠ Think twice: this IP is Microsoft infrastructure."
+                    : "";
+                string detail = $"Contacted by '{record.ProcessDisplay}'.\n\n" +
+                                "2 rules are created: outbound TCP and UDP — inbound is already covered by the\n" +
+                                "firewall's stateful filtering.\n" +
+                                "Undo anytime: right-click this row again, the 🚑 Restore Internet button in\nthe status bar, or AutoCommand → Blocks → Manage all.";
+                string key = warning.Length > 0 ? ConfirmPrefs.WarnMsInfra : ConfirmPrefs.ConfirmIp;
+                string label = warning.Length > 0
+                    ? "Don't warn me about Microsoft-infrastructure IPs — I know what I'm doing"
+                    : "Don't ask again before blocking remote IPs";
+                if (!ConfirmBlockWithDialog($"Block all outbound traffic to remote IP {ip}?", warning, detail, key, label))
+                    return;
+            }
+
+            try
+            {
+                string note = BuildProvenance(record, $"→ {ip}", confirmSuppressed);
+                var (created, updated) = await FirewallBlockService.Instance.AddIpBlockAsync(ip, note);
+                await RefreshBlockStateAsync();
+                StatusText.Text = created > 0
+                    ? $"⛔ Blocked remote IP {ip} — 2 rules (outbound TCP/UDP). Provenance written to the rule description (visible in wf.msc)."
+                    : $"Block for {ip} already existed — refreshed its provenance (no duplicate rules).";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to block remote IP: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void BlockAppMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (FlowGrid.SelectedItem is not TransmissionRecord { Pid: > 0 } record) return;
+
+            // A flow's process may have exited long ago — the rule matches
+            // the exe path and arms for the next run. The full path is right
+            // on the row (captured at flow time), so no archive recovery is
+            // needed; a recycled PID cannot be mistaken for the suspect.
+            string path = record.Image;
+            if (string.IsNullOrEmpty(path))
+            {
+                MessageBox.Show(
+                    "This row carries no executable path, so there is nothing to arm the block on.\n" +
+                    "You can still act on the infrastructure it used: right-click the row →\n" +
+                    $"'⛔ Block Remote IP in Firewall' for {record.RemoteIp}.",
+                    "Cannot block — no path", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var state = FirewallBlockService.Instance.AppState(path);
+            if (state == FirewallBlockService.BlockState.Active)
+            {
+                await ConfirmAndRemoveBlockAsync("proc", path, path);
+                return;
+            }
+            if (state == FirewallBlockService.BlockState.Paused)
+            {
+                StatusText.Text = $"⏸ The block for {path} is paused (traffic flows). Re-enable it from AutoCommand → Blocks → Manage all.";
+                return;
+            }
+
+            string procName = Path.GetFileNameWithoutExtension(path);
+            string warning = "";
+            if (procName.Equals("svchost", StringComparison.OrdinalIgnoreCase) ||
+                procName.Equals("taskhostw", StringComparison.OrdinalIgnoreCase))
+                warning = $"'{procName}.exe' hosts Windows SERVICES. One instance carries DNS (Dnscache),\n" +
+                          "DHCP, diagnostics and more — blocking it is the #1 cause of 'I blocked something\n" +
+                          "and lost my internet'. If a specific connection looks bad, block the IP, not this process.";
+            else if (path.StartsWith(Environment.SystemDirectory, StringComparison.OrdinalIgnoreCase))
+                warning = $"'{procName}' is a Windows component. Blocking it can break shell features,\n" +
+                          "widgets, or web content in Start/Settings.";
+
+            bool coreApplies = warning.Length > 0;
+            bool confirmSuppressed =
+                ConfirmPrefs.IsSuppressed(ConfirmPrefs.ConfirmProcess) &&
+                (!coreApplies || ConfirmPrefs.IsSuppressed(ConfirmPrefs.WarnWindowsCore));
+
+            // The exited note is information, not a warning class: it rides
+            // whichever surface the user sees.
+            string exitedNote = "";
+            try
+            {
+                using var probe = System.Diagnostics.Process.GetProcessById(record.Pid);
+                if (string.Equals(probe.ProcessName, procName, StringComparison.OrdinalIgnoreCase)) probe.Dispose();
+                else exitedNote = "⚠ This PID now runs a different process (PID reuse) — the block arms on the\n" +
+                                  $"exe path captured when the row was recorded:\n\n";
+            }
+            catch (ArgumentException)
+            {
+                exitedNote = "⚠ This process has already exited — the block is preventive:\n" +
+                             "the rule takes effect on the exe's NEXT run. A copy of the exe at a\n" +
+                             "different path is NOT covered.\n\n";
+            }
+
+            if (!confirmSuppressed)
+            {
+                string shownWarning = coreApplies && !ConfirmPrefs.IsSuppressed(ConfirmPrefs.WarnWindowsCore) ? warning : "";
+                string detail = exitedNote + $"{path}\n\n(1 outbound rule)\n" +
+                                "Undo anytime: right-click the row again, the 🚑 Restore Internet button in\nthe status bar, or AutoCommand → Blocks → Manage all.";
+                string key = shownWarning.Length > 0 ? ConfirmPrefs.WarnWindowsCore : ConfirmPrefs.ConfirmProcess;
+                string label = shownWarning.Length > 0
+                    ? "Don't warn me about blocking Windows service hosts / components — I know what I'm doing"
+                    : "Don't ask again before blocking processes";
+                if (!ConfirmBlockWithDialog($"Block all outbound traffic from '{procName}'?", shownWarning, detail, key, label))
+                    return;
+            }
+
+            try
+            {
+                string note = BuildProvenance(record, $"app: {path}", confirmSuppressed);
+                var (created, updated) = await FirewallBlockService.Instance.AddAppBlockAsync(path, note);
+                await RefreshBlockStateAsync();
+                StatusText.Text = created > 0
+                    ? $"⛔ Blocked process '{procName}' — 1 outbound rule on its exe path. Provenance written to the rule description (visible in wf.msc)."
+                    : $"Block for '{procName}' already existed — refreshed its provenance (no duplicate rules).";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to block process: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void KillMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (FlowGrid.SelectedItem is not TransmissionRecord { Pid: > 0 } record) return;
+
+            try
+            {
+                var proc = System.Diagnostics.Process.GetProcessById(record.Pid);
+
+                // PID reuse guard: the row may be stale — the original process
+                // exited and Windows recycled the PID to something else.
+                // Verify the live identity before pulling the trigger.
+                string liveName = string.Empty;
+                try { liveName = proc.ProcessName; } catch { }
+
+                string knownName = Path.GetFileNameWithoutExtension(record.Image ?? string.Empty);
+                string confirmName = Path.GetFileName(record.Image ?? string.Empty);
+                if (knownName.Length > 0 && !liveName.Equals(knownName, StringComparison.OrdinalIgnoreCase))
+                {
+                    confirmName = liveName;
+                    var stale = MessageBox.Show(
+                        $"This row is stale: PID {record.Pid} now runs '{liveName}', not '{knownName}'.\n\n" +
+                        $"Kill the running process '{liveName}' (PID {record.Pid}) anyway?\n" +
+                        "This forcefully terminates the application.",
+                        "PID reused — confirm kill", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                    if (stale != MessageBoxResult.Yes) return;
+                }
+                else if (MessageBox.Show(
+                    $"Kill process '{confirmName}' (PID {record.Pid})?\nThis forcefully terminates the application.",
+                    "Confirm Kill", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                proc.Kill();
+                await Task.Delay(500); // Give it a moment to release ports
+                StatusText.Text = $"💀 Killed '{confirmName}' (PID {record.Pid}).";
+            }
+            catch (ArgumentException)
+            {
+                MessageBox.Show($"Process {record.Pid} is no longer running (it already exited).",
+                    "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to kill process: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task ConfirmAndRemoveBlockAsync(string kind, string key, string imageForNote)
+        {
+            if (MessageBox.Show($"Remove the firewall block for\n{key}?\n\nIts rules are deleted and traffic resumes immediately.",
+                "Confirm Unblock", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            try
+            {
+                int removed = kind == "ip"
+                    ? await FirewallBlockService.Instance.RemoveBlockRulesForIpAsync(key)
+                    : await FirewallBlockService.Instance.RemoveBlockRulesForAppAsync(key);
+                await RefreshBlockStateAsync();
+                StatusText.Text = $"✅ Removed {removed} rule(s) for {key} — traffic resumes.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to remove block: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>Provenance written into the rule Description — the audit
+        /// trail visible in wf.msc (same format AutoCommand writes).</summary>
+        private static string BuildProvenance(TransmissionRecord record, string what, bool confirmSuppressed)
+        {
+            string proc = record.ProcessDisplay;
+            return $"[blocked {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC] {proc}" +
+                   (record.Pid > 0 ? $" (PID {record.Pid})" : "") +
+                   $" {what} · ↑{record.UpDisplay} ↓{record.DownDisplay}" +
+                   (string.IsNullOrEmpty(record.Sni) ? "" : $" · SNI {record.Sni}") +
+                   $" · LookSee Who's Talking" +
+                   (confirmSuppressed ? " · confirm suppressed (don't-ask-again)" : "");
+        }
+
+        private bool ConfirmBlockWithDialog(string headline, string warning, string detail,
+                                            string suppressKey, string suppressLabel)
+        {
+            var win = new BlockConfirmWindow(headline, warning, detail, suppressKey, suppressLabel)
+            { Owner = Window.GetWindow(this) };
+            bool confirmed = win.ShowDialog() == true && win.Confirmed;
+            if (confirmed && win.Suppress && win.SuppressKey != null)
+                ConfirmPrefs.Suppress(win.SuppressKey);
+            return confirmed;
+        }
+
+        /// <summary>Re-derives block states and re-badges every row (new and
+        /// old) after any block add/remove.</summary>
+        private async Task RefreshBlockStateAsync()
+        {
+            await Task.Run(() => FirewallBlockService.Instance.RefreshSnapshot());
+            foreach (var row in _rows)
+                row.BlockedByRule =
+                    FirewallBlockService.Instance.IpState(row.RemoteIp) == FirewallBlockService.BlockState.Active ||
+                    FirewallBlockService.Instance.AppState(row.Image) == FirewallBlockService.BlockState.Active;
+            CollectionViewSource.GetDefaultView(_rows).Refresh();
+        }
+
+        // ── AutoCommand bridge button ────────────────────────────────────
+
+        private async void ImportAcBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ImportAcBtn.IsEnabled = false;
+            try
+            {
+                StatusText.Text = "Importing ignore lists from AutoCommand…";
+                var r = await AutoCommandImportService.ImportAsync();
+                await RefreshBlockStateAsync(); // badges track live rules, whatever made them
+                StatusText.Text = r.FoundAutoCommand
+                    ? $"⇄ Imported from AutoCommand: +{r.NamesImported} ignored process(es), +{r.ImagesImported} ignored app(s). AutoCommand was not changed."
+                    : "⇄ AutoCommand not found on this machine — nothing to import (LookSee works fully without it).";
+            }
+            finally { ImportAcBtn.IsEnabled = true; }
+        }
+
+        private void IgnoreListsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new IgnoredProcessesWindow { Owner = Window.GetWindow(this) };
+            win.ShowDialog();
+            CollectionViewSource.GetDefaultView(_rows).Refresh(); // un-ignoring may reveal rows
+        }
     }
 }

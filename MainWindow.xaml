@@ -154,6 +154,10 @@
                     <Button x:Name="ReviewAlertBtn" Content="Review"
                             Style="{StaticResource PrimaryButton}" Padding="8,2" FontSize="10" Margin="8,0,0,0"
                             Visibility="Collapsed" Click="ReviewAlertBtn_Click"/>
+                    <Button x:Name="RestoreInternetBtn" Content="🚑 Restore Internet"
+                            Style="{StaticResource PrimaryButton}" Padding="8,2" FontSize="10" Margin="8,0,0,0"
+                            ToolTip="Blocked something and lost connectivity? Disables EVERY LookSee/AutoCommand-created block rule at once (they share one scheme). Fully reversible — nothing is deleted."
+                            Click="RestoreInternetBtn_Click"/>
                 </StackPanel>
 
                 <!-- Theme toggle: dark/light, remembered for next launch -->

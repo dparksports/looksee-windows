@@ -2,14 +2,14 @@
 
 How LookSee delivers what the [README](../README.md) promises: the technologies behind each tab, the design rules they follow, and every place on disk the app writes. No marketing — just what runs, what it touches, and why.
 
-LookSee is the watch-only lens distilled from [AutoCommand](https://github.com/dparksports/autocommand-windows) (same author). It contains no firewall management, no blocking, no AI-assistant bridge, and no settings beyond the theme toggle — by design.
+LookSee is the everyday lens distilled from [AutoCommand](https://github.com/dparksports/autocommand-windows) (same author): one screen that answers "what is this PC doing?", with AutoCommand's exact row actions (block/unblock IP and process, kill, ignore, trace) and its block rule scheme — so the two apps manage each other's blocks interchangeably. It has no firewall-presets tab, no Blocks inventory tab, no AI-assistant bridge, and no settings beyond the theme toggle.
 
 ---
 
 ## Design rules
 
 1. **Zero-PowerShell core.** Monitoring talks to Windows directly — COM, WMI, and P/Invoke — never by spawning `powershell.exe`. Native command-line tools (`wevtutil`, `ipconfig`) are used only where Microsoft ships no COM or .NET surface, and always through one audited runner (`Helpers/ProcessRunner.cs`).
-2. **Watch-first.** The app observes. Its only write actions — telemetry pins, Sysmon setup, python instrumentation, the Windows Check-Ins cadence — each happen after a button that says what it does, and each is reversible from the same screen.
+2. **Watch first, stop precisely.** The app observes. Its write actions — telemetry pins, Sysmon setup, python instrumentation, the Windows Check-Ins cadence, and the row-menu blocks — each happen after a confirmation that says what it does, write provenance where Windows can show it (rule descriptions in wf.msc), and are reversible from the same surface (unblock per row, 🚑 Restore Internet for the fleet, per-class "don't ask again" resettable from Ignore lists…).
 3. **Verified downloads.** Auto-downloaded tools (Sysmon from `live.sysinternals.com`) must pass both a logged SHA256 check and a native `WinVerifyTrust` Authenticode verification; anything else is deleted, never executed.
 4. **Plain, inspectable state.** Everything the app remembers is a readable JSON, JSONL, XML or text file (listed at the end), so you can back up, diff, or delete everything it knows.
 5. **Looking never interrupts.** Feeds stay in the visual tree (visibility-toggled, never unloaded), so switching tabs never stops a recording; a feed runs until you stop it.
@@ -28,6 +28,8 @@ LookSee is the watch-only lens distilled from [AutoCommand](https://github.com/d
 | TLS decrypt | Keys from the keylog that instrumented pythons and/or `SSLKEYLOGFILE`-honoring apps wrote (Chromium/Electron, curl, git, OpenSSL/Python); flows run through the decryptor, then an HTTP/1.x stream decoder |
 | Archive | One readable, greppable JSONL index per day under `%LOCALAPPDATA%\LookSee\transmissions`, full request/response bodies in `bodies\` when they decrypted, each row carrying a SHA-256 over both plaintext directions; day files prune after a retention window and the bodies folder rotates oldest-day directories under a size budget |
 | Opt-in intercept | The "decrypt" session tooling (system proxy + per-target QUIC/UDP-443 netsh rule + local CA) journals every hook (`InterceptSystemHooks`), recovers them after a crash on next start, and restores all three on stop/app exit |
+| Row actions | The exact AutoCommand Process Monitor set: Block/Unblock IP (2-rule v2 `AC-BLOCK-*` scheme, provenance in the rule Description), Block/Unblock process (1 outbound rule on the exe path), Kill (stale-PID guard), Ignore (both lists), Trace (PID Inquiry). Block states derive from one live COM pass (`FirewallBlockService`) — no shadow inventory to drift; the same pass powers the ⛔ badges and the 🚑 Restore Internet fleet toggle (with Microsoft/Windows-component risk skip) |
+| Zero-reply lens | View-level filter, AutoCommand's TX-only lens semantics: rows that SENT and never received (Down = 0) are counted live on the checkbox (`⚪ zero-reply (N)`) before it's switched on; the lens narrows the grid, unchecking restores the exact prior list. Per-instance PIDs are a grid column, so multiple instances of one app stay distinct |
 
 ### Phone Bill (🧾)
 
@@ -111,6 +113,7 @@ The Security Enforcer, minus its former firewall-drift half: WMI event subscript
 | `<app>\telemetry_state.json` | Snapshots of the settings changed by opt-outs |
 | `<app>\dns_forward_cache.json` | Forward-DNS cache for Deliveries' "where do they connect" |
 | `<app>\ignored_processes.txt` | Feeds' ignore list (the raw feeds enforce it) |
+| `<app>\confirm_prefs.txt` | Per-class "don't ask again" choices for block confirmations (resettable from Ignore lists…) |
 | `<app>\check_interval.txt` | Watchdog cadence |
 | `HKCU\Software\LookSee` | Theme choice |
 | `HKCU\Software\LookSee\UsagePing` | *(inert — the optional count is not configured; the key is never created)* |

@@ -15,7 +15,7 @@ LookSee is built and maintained by one person ([Dan Park](https://magicpoint.ai)
 ## Good to know
 
 - **Bugs over guesses.** If something looks off, the fastest path is the bug form: it captures your Windows build, the app build, the tab, and points you at the readable JSON/text files on disk that speed up diagnosis.
-- **Something feels stuck after a decrypt session or telemetry pins?** LookSee never blocks programs, but two things it *can* touch are restored from where you set them: stop a decrypt session in Who's Talking (proxy and QUIC rule come back instantly), or un-pin domains in Black Hole. Both are one click, fully reversible.
+- **Something feels stuck after a decrypt session, telemetry pins or a block?** Every change is reversible from where you made it: stop a decrypt session in Who's Talking (proxy and QUIC rule come back instantly), un-pin domains in Black Hole, right-click the row again to unblock — or hit the 🚑 **Restore Internet** button in the status bar, which disables every LookSee/AutoCommand block rule at once and flushes the DNS cache for you.
 - **Security issues are different.** Anything that could let malware or another user abuse LookSee's own machinery goes to private reporting ([SECURITY.md](SECURITY.md)).
 
 ## Before you report: the two-minute checks

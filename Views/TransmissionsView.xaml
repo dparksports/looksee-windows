@@ -54,6 +54,10 @@
                           Foreground="{DynamicResource TextPrimaryBrush}" Checked="SystemKeylogCheck_Changed" Unchecked="SystemKeylogCheck_Changed"/>
                 <Button x:Name="NoKeysBtn" Content="🔓 Apps without keys" Style="{StaticResource PrimaryButton}" Click="NoKeysBtn_Click" Margin="12,0,0,0"
                         ToolTip="Apps whose traffic arrived encrypted with no session keys — restart one under watch, ignore it, or turn on system-wide key capture."/>
+                <Button x:Name="IgnoreListsBtn" Content="🔕 Ignore lists…" Style="{StaticResource PrimaryButton}" Click="IgnoreListsBtn_Click" Margin="8,0,0,0"
+                        ToolTip="Manage both ignore lists: process names (all feeds) and apps (this tab's rows and toasts)."/>
+                <Button x:Name="ImportAcBtn" Content="⇄ Import from AutoCommand…" Style="{StaticResource PrimaryButton}" Click="ImportAcBtn_Click" Margin="8,0,0,0"
+                        ToolTip="One-way, read-only: copies AutoCommand's ignored-process and ignored-app lists here, and remembers its block inventory so rows can show ⛔ blocked. AutoCommand itself is never changed."/>
             </StackPanel>
         </Grid>
 
@@ -69,14 +73,17 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="StatusText" Text="Watcher is stopped." Foreground="{DynamicResource TextSecondaryBrush}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                <Button x:Name="EnableKeysBtn" Grid.Column="1" Content="🔓 Turn on key capture" Style="{StaticResource PrimaryButton}"
+                <CheckBox x:Name="ZeroReplyCheck" Grid.Column="1" Content="⚪ zero-reply" VerticalAlignment="Center" Margin="0,0,12,0"
+                          Foreground="{DynamicResource TextPrimaryBrush}" Checked="ApplyFilter" Unchecked="ApplyFilter"
+                          ToolTip="A lens, not a verdict: show only conversations that SENT bytes and never heard one word back (Down = 0). The count updates live while the lens is off; unchecking restores the exact prior list. A zero-reply shape is what a blocked outbound call or a dead-end beacon looks like."/>
+                <Button x:Name="EnableKeysBtn" Grid.Column="2" Content="🔓 Turn on key capture" Style="{StaticResource PrimaryButton}"
                         Padding="8,2" FontSize="10" Margin="0,0,12,0" Visibility="Collapsed" Click="EnableKeysBtn_Click"
                         ToolTip="TLS keys only exist at handshake time — flows that began before key capture stay encrypted. One click covers every app launched afterwards."/>
-                <CheckBox x:Name="BigOnlyCheck" Grid.Column="2" Content="uploads &gt; 10KB only" VerticalAlignment="Center" Margin="0,0,12,0"
+                <CheckBox x:Name="BigOnlyCheck" Grid.Column="3" Content="uploads &gt; 10KB only" VerticalAlignment="Center" Margin="0,0,12,0"
                           Foreground="{DynamicResource TextPrimaryBrush}" Checked="ApplyFilter" Unchecked="ApplyFilter"/>
-                <TextBlock Grid.Column="3" Text="Filter (regex):" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0"
+                <TextBlock Grid.Column="4" Text="Filter (regex):" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0"
                            ToolTip="Regex over process, SNI/host, destination IP, provider and status — the 'what was sent where' search."/>
-                <TextBox x:Name="FilterBox" Grid.Column="4" Width="240" Padding="4" FontFamily="Consolas"
+                <TextBox x:Name="FilterBox" Grid.Column="5" Width="240" Padding="4" FontFamily="Consolas"
                          Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                          BorderBrush="{DynamicResource BorderBrush}" TextChanged="FilterBox_TextChanged"/>
             </Grid>
@@ -86,8 +93,20 @@
         <DataGrid Grid.Row="3" x:Name="FlowGrid" SelectionMode="Single" AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionChanged="FlowGrid_SelectionChanged" PreviewMouseRightButtonDown="FlowGrid_PreviewMouseRightButtonDown">
             <DataGrid.ContextMenu>
-                <ContextMenu>
+                <ContextMenu Opened="RowMenu_Opened">
+                    <MenuItem x:Name="TraceMenuItem" Header="🔎 Trace this instance…" Click="TraceMenuItem_Click"
+                              ToolTip="Open the PID Inquiry window: recorded parent/child chain, command line, live modules, provenance hints — read-only."/>
+                    <MenuItem x:Name="IgnoreProcMenuItem" Header="🔕 Ignore…" Click="IgnoreProcMenuItem_Click"
+                              ToolTip="Adds this app to BOTH ignore lists: rows/toasts here and the process name in every other feed. Reversible from 🔔/🔕 Ignore lists…."/>
+                    <Separator/>
                     <MenuItem x:Name="CopyRowMenuItem" Header="📋 Copy row as JSON" Click="CopyRowMenuItem_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="BlockIpMenuItem" Header="⛔ Block remote IP in Firewall" Click="BlockIpMenuItem_Click"
+                              ToolTip="2 outbound rules (TCP + UDP), same scheme as AutoCommand — its Blocks tab manages them too. The item flips to ✅ Unblock once a block exists. Undo anytime."/>
+                    <MenuItem x:Name="BlockAppMenuItem" Header="⛔ Block process in Firewall" Click="BlockAppMenuItem_Click"
+                              ToolTip="1 outbound rule matching the exe's full path — it arms even if the process already exited (next run is blocked). Same scheme as AutoCommand."/>
+                    <MenuItem x:Name="KillMenuItem" Header="💀 Kill process" Click="KillMenuItem_Click"
+                              ToolTip="Forcefully terminates the PID, with a stale-PID guard exactly like AutoCommand's Process Monitor."/>
                 </ContextMenu>
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
