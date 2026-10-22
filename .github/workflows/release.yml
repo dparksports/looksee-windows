@@ -95,3 +95,6 @@ jobs:
             "publish/LookSee-v$ver-win-x64.zip" `
             publish/SHA256SUMS.txt `
             --clobber --repo $Env:GITHUB_REPOSITORY
+          # belt-and-braces: if a draft release object ever exists for the
+          # tag (observed once after a failed attach + re-tag), publish it
+          gh release edit $tag --draft=false --repo $Env:GITHUB_REPOSITORY
