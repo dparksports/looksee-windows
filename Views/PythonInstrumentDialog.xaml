@@ -1,0 +1,73 @@
+<Window x:Class="LookSee.Views.PythonInstrumentDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Instrument python environments"
+        Width="760" Height="560"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,4">
+            <TextBlock Text="Instrument python environments" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap"
+                       Text="Found automatically: registry, PATH, Store, conda, uv, pyenv-win, scoop — plus a deep scan for venvs and every python the Who Started It tab has seen run. Instrumenting writes the LookSee audit hook (PyTraceHook_ac.py + a .pth importer) into that environment's site-packages so its pythons report spawn stacks and TLS session keys. Nothing else changes — no interpreter modification, no reads inside the venv."
+                       ToolTip="Reach limits: -I/-E defeats PYTHONPATH-style injection but a .pth in real site-packages survives. -S, frozen and embedded interpreters never load site at all and cannot be instrumented."/>
+        </StackPanel>
+
+        <WrapPanel Grid.Row="1" Margin="0,8" HorizontalAlignment="Left">
+            <Button x:Name="RefreshBtn" Content="🔄 Rediscover" Style="{StaticResource PrimaryButton}"
+                    Click="RefreshBtn_Click" Margin="0,0,8,0"/>
+            <Button x:Name="DeepScanBtn" Content="🔍 Deep scan for venvs" Style="{StaticResource PrimaryButton}"
+                    Click="DeepScanBtn_Click" Margin="0,0,8,0"
+                    ToolTip="Bounded search for pyvenv.cfg files under your profile and common dev folders. Streams findings into the list as it goes; press again to stop."/>
+            <Button x:Name="AddVenvBtn" Content="📁 Add folder…" Style="{StaticResource PrimaryButton}"
+                    Click="AddVenvBtn_Click" Margin="0,0,8,0"
+                    ToolTip="Manually add a venv/python root folder (the one containing Lib\site-packages)"/>
+            <Button x:Name="ForgetBtn" Content="✖ Forget selected" Style="{StaticResource PrimaryButton}"
+                    Click="ForgetBtn_Click" Margin="0,0,8,0"
+                    ToolTip="Remove from the list and never re-add in future discoveries (the environment itself is untouched)"/>
+        </WrapPanel>
+
+        <ListBox Grid.Row="2" x:Name="EnvList"
+                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                 BorderBrush="{DynamicResource BorderBrush}" FontFamily="Consolas" FontSize="11"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTipText}">
+                        <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" IsEnabled="{Binding Enabled}"
+                                  VerticalAlignment="Center" Margin="0,0,8,0" Focusable="False"/>
+                        <TextBlock Text="{Binding Display}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Reason}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic"
+                                   Visibility="{Binding ReasonVisibility}"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Grid.Row="3" x:Name="StatusText" Margin="0,8" FontSize="11"
+                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="InstrumentAllBtn" Content="✅ Instrument all found" Style="{StaticResource PrimaryButton}"
+                    Click="InstrumentAllBtn_Click" Margin="0,0,8,0"
+                    ToolTip="Checks every instrumentable environment and opens the same confirmation as Instrument selected."/>
+            <Button x:Name="InstallBtn" Content="✅ Instrument selected" Style="{StaticResource PrimaryButton}"
+                    Click="InstallBtn_Click" Margin="0,0,8,0"/>
+            <Button x:Name="UninstallBtn" Content="🧹 Remove selected" Style="{StaticResource PrimaryButton}"
+                    Click="UninstallBtn_Click" Margin="0,0,8,0"/>
+            <Button Content="Close" Style="{StaticResource PrimaryButton}" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

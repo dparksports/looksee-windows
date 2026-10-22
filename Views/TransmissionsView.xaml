@@ -1,0 +1,262 @@
+<UserControl x:Class="LookSee.Views.TransmissionsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Loaded="UserControl_Loaded" Unloaded="UserControl_Unloaded">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="6"/>
+            <RowDefinition Height="300"/>
+        </Grid.RowDefinitions>
+
+        <!-- Session banners: intercept (layer 3) and capture-direction health -->
+        <StackPanel Grid.Row="0">
+            <Border x:Name="InterceptBanner" Background="#3A2E14" BorderBrush="#E5A631"
+                    BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,0,0,10" Visibility="Collapsed">
+                <DockPanel>
+                    <Button x:Name="InterceptStopBtn" DockPanel.Dock="Right" Content="⏹ Stop now" Style="{StaticResource DangerButton}"
+                            Click="InterceptStopBtn_Click" Margin="12,0,0,0" Padding="10,2" FontSize="11"/>
+                    <TextBlock x:Name="InterceptBannerText" Foreground="#E5A631" FontSize="11" VerticalAlignment="Center"
+                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
+            <Border x:Name="CaptureHealthBanner" Background="#14243A" BorderBrush="#4A9EFF"
+                    BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,0,0,10" Visibility="Collapsed"
+                    ToolTip="Some network adapters deliver only outbound packets to a capture socket. When that happens the Down column cannot prove a reply never came — it just didn't see one.">
+                <TextBlock x:Name="CaptureHealthBannerText" Foreground="#7FB8FF" FontSize="11" VerticalAlignment="Center"
+                           TextWrapping="Wrap"/>
+            </Border>
+        </StackPanel>
+
+        <!-- Header -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Who's Talking" Style="{StaticResource PageHeader}"/>
+                <TextBlock Text="What this machine actually sends to the cloud — decrypted via SSL session keys, decoded to HTTP messages, full bodies on disk"
+                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,-12,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button x:Name="ToggleWatchBtn" Content="Start Watch" Style="{StaticResource PrimaryButton}" Click="ToggleWatchBtn_Click" Margin="0,0,8,0"/>
+                <Button x:Name="ClearBtn" Content="🗑 Clear" Style="{StaticResource PrimaryButton}" Click="ClearBtn_Click" Margin="0,0,8,0"/>
+                <Button x:Name="ExportBtn" Content="💾 Export JSONL" Style="{StaticResource PrimaryButton}" Click="ExportBtn_Click" Margin="0,0,8,0"/>
+                <Button x:Name="LaunchBtn" Content="🚀 Launch under watch…" Style="{StaticResource PrimaryButton}" Click="LaunchBtn_Click" Margin="0,0,8,0"
+                        ToolTip="Start a program with SSLKEYLOGFILE set in its environment only — the precise instrument for one app."/>
+                <CheckBox x:Name="SystemKeylogCheck" Content="🔑 System-wide key capture" VerticalAlignment="Center"
+                          Foreground="{DynamicResource TextPrimaryBrush}" Checked="SystemKeylogCheck_Changed" Unchecked="SystemKeylogCheck_Changed"/>
+                <Button x:Name="NoKeysBtn" Content="🔓 Apps without keys" Style="{StaticResource PrimaryButton}" Click="NoKeysBtn_Click" Margin="12,0,0,0"
+                        ToolTip="Apps whose traffic arrived encrypted with no session keys — restart one under watch, ignore it, or turn on system-wide key capture."/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Status + filter -->
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4" Padding="12,8" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Text="Watcher is stopped." Foreground="{DynamicResource TextSecondaryBrush}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <Button x:Name="EnableKeysBtn" Grid.Column="1" Content="🔓 Turn on key capture" Style="{StaticResource PrimaryButton}"
+                        Padding="8,2" FontSize="10" Margin="0,0,12,0" Visibility="Collapsed" Click="EnableKeysBtn_Click"
+                        ToolTip="TLS keys only exist at handshake time — flows that began before key capture stay encrypted. One click covers every app launched afterwards."/>
+                <CheckBox x:Name="BigOnlyCheck" Grid.Column="2" Content="uploads &gt; 10KB only" VerticalAlignment="Center" Margin="0,0,12,0"
+                          Foreground="{DynamicResource TextPrimaryBrush}" Checked="ApplyFilter" Unchecked="ApplyFilter"/>
+                <TextBlock Grid.Column="3" Text="Filter (regex):" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0"
+                           ToolTip="Regex over process, SNI/host, destination IP, provider and status — the 'what was sent where' search."/>
+                <TextBox x:Name="FilterBox" Grid.Column="4" Width="240" Padding="4" FontFamily="Consolas"
+                         Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                         BorderBrush="{DynamicResource BorderBrush}" TextChanged="FilterBox_TextChanged"/>
+            </Grid>
+        </Border>
+
+        <!-- Flow grid -->
+        <DataGrid Grid.Row="3" x:Name="FlowGrid" SelectionMode="Single" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionChanged="FlowGrid_SelectionChanged" PreviewMouseRightButtonDown="FlowGrid_PreviewMouseRightButtonDown">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem x:Name="CopyRowMenuItem" Header="📋 Copy row as JSON" Click="CopyRowMenuItem_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Time" Binding="{Binding TimeDisplay}" SortMemberPath="TsUtc" Width="95"/>
+                <DataGridTemplateColumn Header="10KB" Width="48" SortMemberPath="BigUpload">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="8" Padding="6,1" HorizontalAlignment="Left"
+                                    Background="#3A2E14" Visibility="{Binding BigUploadVisibility}">
+                                <TextBlock Text="↑10K" FontSize="10" Foreground="#E5A631"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="55"/>
+                <DataGridTemplateColumn Header="Process" Width="130" SortMemberPath="Image">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ProcessDisplay}" ToolTip="{Binding Image}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Host (SNI)" Width="170" SortMemberPath="Sni">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding HostDisplay}" ToolTip="{Binding HostDisplay}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Destination" Binding="{Binding ServerEndpoint}" Width="125"/>
+                <DataGridTextColumn Header="Provider" Binding="{Binding ProviderAndCountry}" Width="150" SortMemberPath="Provider"/>
+                <DataGridTextColumn Header="Up" Binding="{Binding UpDisplay}" SortMemberPath="ClientBytes" Width="65"/>
+                <DataGridTextColumn Header="Down" Binding="{Binding DownDisplay}" SortMemberPath="ServerBytes" Width="65"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="125"/>
+                <DataGridTextColumn Header="Messages" Binding="{Binding MessageCount}" Width="65"/>
+                <DataGridTextColumn Header="Content" Binding="{Binding ContentKinds}" Width="90"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <GridSplitter Grid.Row="4" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                      Background="Transparent" ShowsPreview="False" ResizeBehavior="PreviousAndNext"/>
+
+        <!-- Detail pane -->
+        <Grid Grid.Row="5" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Flow summary -->
+            <Border Grid.Column="0" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4" Padding="10" Margin="0,0,8,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel x:Name="EncryptedActionsPanel" Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8" Visibility="Collapsed">
+                        <Button x:Name="InterceptBtn" Content="🛡 Intercept this process…" Style="{StaticResource DangerButton}"
+                                Click="InterceptBtn_Click" Margin="0,0,8,0" FontSize="11"
+                                ToolTip="Layer 3: a time-boxed local intercept for apps that cannot write TLS keys (Schannel system components included). Temporary CA + system proxy, scoped to this PID, auto-reverted."/>
+                        <Button x:Name="RestartBtn" Content="🚀 Restart under watch…" Style="{StaticResource PrimaryButton}"
+                                Click="RestartBtn_Click" Margin="0,0,8,0" FontSize="11"
+                                ToolTip="Terminate this app's running instance(s) and relaunch it with the same command line, with TLS key capture applied — its next connections decrypt."/>
+                        <Button x:Name="IgnoreBtn" Content="🔕 Ignore this app" Style="{StaticResource PrimaryButton}"
+                                Click="IgnoreBtn_Click" Margin="0,0,8,0" FontSize="11"
+                                ToolTip="No more encrypted-upload toasts or suggestions for this app (rows stay in the grid). Reversible from 🔓 Apps without keys."/>
+                        <Button x:Name="UnignoreBtn" Content="🔔 Un-ignore this app" Style="{StaticResource PrimaryButton}"
+                                Click="UnignoreBtn_Click" Margin="0,0,8,0" FontSize="11" Visibility="Collapsed"
+                                ToolTip="This app is on the ignore list — toasts and suggestions resume."/>
+                    </StackPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DetailRecordPanel"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Content viewer -->
+            <Border Grid.Column="1" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,6">
+                        <Button x:Name="SaveBodyBtn" DockPanel.Dock="Right" Content="💾 Save body" Style="{StaticResource PrimaryButton}"
+                                Click="SaveBodyBtn_Click" Margin="8,0,0,0"/>
+                        <ComboBox x:Name="ViewModeCombo" DockPanel.Dock="Right" Width="80" SelectedIndex="0" SelectionChanged="ViewModeCombo_SelectionChanged">
+                            <ComboBoxItem Content="pretty"/>
+                            <ComboBoxItem Content="text"/>
+                            <ComboBoxItem Content="hex"/>
+                            <ComboBoxItem Content="headers"/>
+                        </ComboBox>
+                        <ComboBox x:Name="MessageCombo" Margin="0,0,8,0"
+                                  SelectionChanged="MessageCombo_SelectionChanged"
+                                  ToolTip="Every decoded HTTP message in this conversation — → is what this machine sent, ← is what came back."/>
+                    </DockPanel>
+                    <TextBox Grid.Row="1" x:Name="ContentText" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"
+                             Text="Select a transmission to see exactly what was sent."/>
+                    <TextBlock Grid.Row="2" x:Name="ContentFooter" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10"
+                               Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Apps-without-keys suggestions, anchored under its toolbar button -->
+        <Popup x:Name="NoKeysPopup" StaysOpen="False" PlacementTarget="{Binding ElementName=NoKeysBtn}"
+               Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="12" Width="560">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" MaxHeight="300">
+                        <TextBlock Text="Apps sending encrypted traffic without keys" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                        <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Text="Restart under watch relaunches the app with the same command line (from Sysmon) and key capture applied — the next TLS flow decrypts. Ignored apps stop prompting here and in toasts; their rows stay in the grid."/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="NoKeysList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding ImageDisplay}" ToolTip="{Binding Image}"
+                                                               FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="🚀 Restart under watch" Style="{StaticResource PrimaryButton}"
+                                                        Padding="6,2" FontSize="10" Margin="0,0,6,0" Click="NoKeysRestart_Click"/>
+                                                <Button Grid.Column="2" Content="🔕 Ignore" Style="{StaticResource PrimaryButton}"
+                                                        Padding="6,2" FontSize="10" Click="NoKeysIgnore_Click"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                        <Separator Margin="0,0,0,6"/>
+                        <TextBlock x:Name="IgnoredHeader" Text="Ignored apps" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" Visibility="Collapsed"/>
+                        <ItemsControl x:Name="IgnoredList" MaxHeight="110">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,2">
+                                        <Button DockPanel.Dock="Right" Content="Unignore" Style="{StaticResource PrimaryButton}"
+                                                Padding="6,1" FontSize="10" Click="IgnoredUnignore_Click"/>
+                                        <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10"
+                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button x:Name="PopupEnableKeysBtn" Content="🔓 Turn on system-wide key capture" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Left" Margin="0,8,0,0" Click="EnableKeysBtn_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

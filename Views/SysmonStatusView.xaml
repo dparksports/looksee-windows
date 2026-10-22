@@ -1,0 +1,94 @@
+<UserControl x:Class="LookSee.Views.SysmonStatusView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Loaded="UserControl_Loaded">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20" MaxWidth="980">
+
+            <TextBlock Text="Recorder" Style="{StaticResource PageHeader}"/>
+            <TextBlock Text="Sysmon records every process launch (with full command line and parent), every network connection and every DNS lookup — even for processes that exit within seconds. Windows keeps none of this by default; Sysmon is what makes short-lived processes traceable after the fact."
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+            <!-- Status card -->
+            <Border Style="{StaticResource CardPanel}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <Ellipse x:Name="StateDot" Width="14" Height="14" Fill="#E5484D" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StateText" Text="Checking…" FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="DetailText" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"/>
+
+                    <WrapPanel x:Name="FactsPanel" Margin="0,0,0,12">
+                        <TextBlock x:Name="VersionText"  Text="Version: —"      Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="ServiceText"  Text="Service: —"      Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="ChannelText"  Text="Event channel: —" Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="EventsText"   Text="Events (24h): —" Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="ArchiveText"  Text="Archive: —"       Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="NewestText"   Text="Newest event: —" Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="HashText"     Text="Config hash: —"  Margin="0,2,24,2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </WrapPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="InstallBtn" Content="Install Sysmon" Style="{StaticResource PrimaryButton}"
+                                Padding="14,6" Margin="0,0,8,0" Click="InstallBtn_Click" Visibility="Collapsed"/>
+                        <Button x:Name="RepairBtn" Content="Repair Install" Style="{StaticResource DangerButton}"
+                                Padding="14,6" Margin="0,0,8,0" Click="InstallBtn_Click" Visibility="Collapsed"/>
+                        <Button x:Name="ApplyConfigBtn" Content="Apply Recommended Config"
+                                Style="{StaticResource PrimaryButton}" Padding="14,6" Margin="0,0,8,0"
+                                Click="ApplyConfigBtn_Click" Visibility="Collapsed"
+                                ToolTip="Re-applies the config that captures process creations (ID 1), network connections (ID 3) and DNS queries (ID 22). Existing installs made with an older config only record network events."/>
+                        <Button x:Name="RefreshBtn" Content="Refresh" Padding="14,6" Click="RefreshBtn_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Live process-creation feed -->
+            <Border Style="{StaticResource CardPanel}">
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Recent process creations (EventID 1)" Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
+                        <Button x:Name="CaptureBtn" Grid.Column="1" Content="Start Capture" Padding="12,4" Click="CaptureBtn_Click"/>
+                    </Grid>
+                    <TextBlock x:Name="FeedStatusText" Text="Capture requires Sysmon to be installed."
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,8"/>
+                    <DataGrid x:Name="ProcessGrid" Height="320" AutoGenerateColumns="False" IsReadOnly="True"
+                              ItemsSource="{Binding}" EnableRowVirtualization="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time, StringFormat=HH:mm:ss}" Width="80"/>
+                            <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="55"/>
+                            <DataGridTextColumn Header="Image" Binding="{Binding Image}" Width="200">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="ToolTip" Value="{Binding Image}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Parent" Binding="{Binding ParentImage}" Width="170">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="ToolTip" Value="{Binding ParentImage}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Command line" Binding="{Binding CommandLine}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="ToolTip" Value="{Binding CommandLine}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

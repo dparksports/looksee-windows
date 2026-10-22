@@ -1,0 +1,13 @@
+name = "autocommand-usage-ping"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# Create the database once (see DEPLOY.md), then paste its id here:
+[[d1_databases]]
+binding = "DB"
+database_name = "usage-ping"
+database_id = "07193093-7ba6-4b07-845a-b2a53f00cd56"
+
+# One secret only:
+#   npx wrangler secret put ADMIN_TOKEN  (used for GET /v1/stats)
+# No PING_SALT, no cron, no request logging ??? the design stores aggregates only.

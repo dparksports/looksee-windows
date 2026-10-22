@@ -1,0 +1,96 @@
+# release.yml - build and attach the Windows release zip on GitHub's runners.
+#
+# Why CI: the ~80 MB self-contained zip only ever moves inside GitHub's
+# datacenters. The contributor's uplink pushes source (kilobytes); the
+# runner does publish -> verify -> zip -> checksums -> attach:
+#   - <Version> in LookSee.csproj is the single source of truth
+#   - the tag must equal v<Version>
+#   - the published exe must report that version (pipeline guard)
+#   - assets: LookSee-v<ver>-win-x64.zip, SHA256SUMS.txt (computed for the
+#     CI-built zip, uploaded --clobber so the sums always match the zip
+#     they shipped with)
+# No secrets needed: GITHUB_TOKEN with contents:write attaches to
+# releases in this repo. Public repo -> free windows-latest minutes.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and attach to (e.g. v1.0.1). Must match the csproj <Version>.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-attach:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version and tag (single source of truth)
+        id: ver
+        shell: pwsh
+        run: |
+          $csproj = Get-Content LookSee.csproj -Raw
+          if ($csproj -notmatch '(?m)^\s*<Version>([\d.]+)</Version>\s*$') {
+            throw 'cannot read <Version> from LookSee.csproj'
+          }
+          $ver = $Matches[1]
+          $tag = '${{ inputs.tag }}'
+          if (-not $tag) { $tag = '${{ github.ref_name }}' }
+          if ($tag -ne "v$ver") {
+            throw "refusing to build: tag '$tag' does not match csproj version 'v$ver'"
+          }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "building v$ver for release $tag"
+
+      - name: Publish app (self-contained win-x64)
+        run: dotnet publish LookSee.csproj -c Release -r win-x64 --self-contained true -o publish/app
+
+      - name: Verify binaries carry the csproj version
+        shell: pwsh
+        run: |
+          $ver = '${{ steps.ver.outputs.version }}'
+          $exe = (Get-Item publish/app/LookSee.exe).VersionInfo.ProductVersion
+          if ($exe -ne $ver) {
+            throw "version pipeline broken: app='$exe' expected='$ver'"
+          }
+          Write-Host "verified ProductVersion: app=$exe"
+
+      - name: Zip + SHA256SUMS
+        shell: pwsh
+        run: |
+          $ver = '${{ steps.ver.outputs.version }}'
+          $zip = "publish/LookSee-v$ver-win-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip }
+          Compress-Archive -Path publish/app/* -DestinationPath $zip
+          $h1 = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          Set-Content publish/SHA256SUMS.txt ("{0}  {1}" -f $h1, (Split-Path $zip -Leaf))
+          Get-Content publish/SHA256SUMS.txt
+
+      - name: Attach assets to the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ steps.ver.outputs.tag }}'
+          gh release view $tag --repo $Env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $Env:GITHUB_REPOSITORY --title $tag --generate-notes
+          }
+          gh release upload $tag `
+            "publish/LookSee-v$ver-win-x64.zip" `
+            publish/SHA256SUMS.txt `
+            --clobber --repo $Env:GITHUB_REPOSITORY

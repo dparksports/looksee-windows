@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Self-test for the dual-family connection table and the Sysmon
+       archive engine: compiles the sources from the app project directly,
+       so what runs here is byte-identical to what ships in LookSee.
+       Excluded from the app build (LookSee.csproj Compile Remove, like
+       BitsTraceSelfTest). Archive persistence is redirected to a temp dir;
+       the TCP-table section does ONE live thing — holds an IPv6 loopback
+       connection open and asserts the dual-family enumeration actually
+       sees it (the v2026.10.17.1 gap, proven fixed at the source). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NetWatchSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Services\TcpConnectionTable.cs" />
+    <Compile Include="..\Services\SysmonArchiveService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SysmonArchiveService uses EventLogReader/EventLogWatcher; on the
+         desktop app these arrive with the WPF SDK — the console test needs
+         the same framework reference explicitly. -->
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+  </ItemGroup>
+
+</Project>

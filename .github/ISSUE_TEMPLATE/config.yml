@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Say hello or ask a question
+    url: https://github.com/dparksports/looksee-windows/discussions/categories/general
+    about: The issue tracker is only for bugs — conversations live in Discussions.
+  - name: ❤️ Send kudos or share what you caught
+    url: https://github.com/dparksports/looksee-windows/discussions/categories/show-and-tell
+    about: A "thanks" or a story about the thing you tracked down makes the maintainer's day.
+  - name: 💡 Suggest a feature
+    url: https://github.com/dparksports/looksee-windows/discussions/categories/ideas
+    about: Post the problem you're trying to solve. Ideas that gather 👍 become issues — that keeps the tracker meaning "agreed work".
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/dparksports/looksee-windows/security/advisories/new
+    about: Please use private reporting, never a public issue — see SECURITY.md.

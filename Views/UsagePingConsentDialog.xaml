@@ -1,0 +1,63 @@
+<Window x:Class="LookSee.Views.UsagePingConsentDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Count me in?"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Help LookSee grow — anonymously" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" FontStyle="Italic" Margin="0,4,0,0"
+                       Text="This app's promise does not change: nothing is sent unless you say yes here."/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6"
+                Padding="12" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock FontSize="12" TextWrapping="Wrap"
+                           Text="LookSee is free and open source. To keep building it, we need one honest number: how many people run it. If you opt in, the app sends this — and only this — once a day:"/>
+                <TextBlock FontFamily="Consolas" FontSize="11" Margin="0,8" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="{}{ a: &quot;looksee&quot;,&#10;  v: app version,  o: Windows build }"/>
+                <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                           Text="• No hostnames, process names, or anything you do in the app."/>
+                <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                           Text="• Your IP address is never stored — the server counts your country at the network edge and drops everything else."/>
+                <TextBlock FontSize="11" TextWrapping="Wrap"
+                           Text="• No id of any kind — not even a random one — is sent or stored anywhere. Delete HKCU\Software\LookSee\UsagePing anytime to withdraw consent."/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,0">
+            <Button x:Name="YesBtn" Content="✅ Yes, count me in" Style="{StaticResource PrimaryButton}"
+                    Click="YesBtn_Click" Margin="0,0,8,0"/>
+            <Button x:Name="LaterBtn" Content="Maybe later" Style="{StaticResource PrimaryButton}"
+                    Click="LaterBtn_Click" Margin="0,0,8,0"/>
+            <Button x:Name="NoBtn" Content="No thanks" Style="{StaticResource PrimaryButton}"
+                    Click="NoBtn_Click"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="3" FontSize="10" Margin="0,12,0,0" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Text="Spec, server code, and the exact aggregation SQL are public in the repository (telemetry/ folder) — verify, don't trust."/>
+
+        <TextBlock Grid.Row="4" x:Name="GraphLink" Margin="0,10,0,0" FontSize="11" Visibility="Collapsed">
+            <Hyperlink x:Name="GraphHyperlink" Foreground="{DynamicResource AccentBlueBrush}"
+                       RequestNavigate="GraphHyperlink_RequestNavigate">See the live community graph →</Hyperlink>
+        </TextBlock>
+    </Grid>
+</Window>

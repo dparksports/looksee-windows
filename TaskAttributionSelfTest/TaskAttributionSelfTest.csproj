@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Offline self-test for the Taskhostw Spawns tab's attribution engine:
+       compiles the services from the app project directly, so what runs here
+       is byte-identical to what ships in LookSee. Excluded from the app
+       build (LookSee.csproj Compile Remove, like PyTraceSelfTest): it has
+       its own Main() and would double-define the linked service classes. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>TaskAttributionSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Services\TaskAttributionService.cs" />
+    <Compile Include="..\Services\ImageSpawnWatcherService.cs" />
+    <Compile Include="..\Services\KnownTaskCatalog.cs" />
+    <Compile Include="..\Models\SpawnItem.cs" />
+    <Content Include="..\Assets\known-tasks.json" Link="Assets\known-tasks.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

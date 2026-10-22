@@ -1,0 +1,9 @@
+# .NET build outputs
+bin/
+obj/
+publish/
+
+# runtime artifacts
+stop.sentinel
+*.user
+.vs/

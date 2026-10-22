@@ -1,0 +1,96 @@
+<UserControl x:Class="LookSee.Views.SpawnsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:LookSee.Views">
+
+    <UserControl.Resources>
+        <!-- Segmented feed selector: one entry point, one place to see which
+             feeds are recording. Checked segment matches the sidebar's
+             selected-nav look. -->
+        <Style x:Key="FeedSegment" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="seg" Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="12,5" Margin="0,0,8,0">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="seg" Property="Background" Value="{DynamicResource NavSelectedBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="seg" Property="Background" Value="{DynamicResource NavHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Feed selector strip. All three feeds stay in the visual tree
+             (visibility-toggled, never removed), so switching feeds never
+             interrupts a running watcher, and their Loaded/Unloaded only
+             follow the whole Who Started It tab. The dot on each segment shows that
+             feed's live state: green recording, grey stopped. -->
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4"
+                Padding="12,6" Margin="20,12,20,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <RadioButton x:Name="TaskhostFeedRadio" GroupName="SpawnFeed" IsChecked="True"
+                                 Style="{StaticResource FeedSegment}" Checked="Feed_Checked"
+                                 ToolTip="Every taskhostw launch, with the scheduled task behind it — the 'why did this run' feed.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="TaskhostDot" Width="7" Height="7" Fill="#6B7280" VerticalAlignment="Center" Margin="0,1,8,1"/>
+                            <TextBlock Text="Scheduled Tasks" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="PythonFeedRadio" GroupName="SpawnFeed"
+                                 Style="{StaticResource FeedSegment}" Checked="Feed_Checked"
+                                 ToolTip="Python launches with call stacks (instrumented environments) and TLS plaintext of what they send.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="PythonDot" Width="7" Height="7" Fill="#6B7280" VerticalAlignment="Center" Margin="0,1,8,1"/>
+                            <TextBlock Text="Python" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="TraceFeedRadio" GroupName="SpawnFeed"
+                                 Style="{StaticResource FeedSegment}" Checked="Feed_Checked"
+                                 ToolTip="svchost spawn genealogy, connection timeline, destination classification and beacon detection.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="TraceDot" Width="7" Height="7" Fill="#6B7280" VerticalAlignment="Center" Margin="0,1,8,1"/>
+                            <TextBlock Text="svchost Timeline" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="Feeds keep recording while you're elsewhere — stop them from their own toolbar"
+                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+            </Grid>
+        </Border>
+
+        <!-- The three feeds share this cell; exactly one is visible. -->
+        <Grid Grid.Row="1">
+            <views:TaskHostSpawnView x:Name="TaskhostFeed"/>
+            <views:PythonSpawnView x:Name="PythonFeed" Visibility="Collapsed"/>
+            <views:SvchostTraceView x:Name="TraceFeed" Visibility="Collapsed"/>
+        </Grid>
+    </Grid>
+</UserControl>

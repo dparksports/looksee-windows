@@ -1,0 +1,171 @@
+<Window x:Class="LookSee.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:LookSee.Views"
+        Title="LookSee" Height="750" Width="1200"
+        Icon="app_icon.ico"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Main content. The sidebar is grouped by the question you're
+             asking: LOOK (feeds that show what the machine is doing),
+             QUIET (tools that make it quieter), SYSTEM (the plumbing).
+             Group headers are non-selectable TabItems; entries are
+             single-line so all nine fit without scrolling.
+             SelectedIndex=1 skips the LOOK header explicitly, so the
+             app opens on Who's Talking. -->
+        <TabControl x:Name="MainTabControl" Grid.Row="0" TabStripPlacement="Left" SelectedIndex="1">
+
+            <!-- ═══ LOOK ═══ -->
+            <TabItem IsEnabled="False" Focusable="False">
+                <TabItem.Header>
+                    <TextBlock Text="LOOK" FontSize="10" FontWeight="Bold"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,2"
+                               ToolTip="Feeds that show what this machine is running and where it connects."/>
+                </TabItem.Header>
+            </TabItem>
+            <TabItem x:Name="TransmissionsNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="💬" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Who's Talking" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:TransmissionsView x:Name="TransmissionsTab"/>
+            </TabItem>
+            <TabItem x:Name="TrafficNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🧾" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Phone Bill" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:TrafficPatternsView x:Name="TrafficPatternsTab"/>
+            </TabItem>
+            <TabItem x:Name="SpawnsNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🧬" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Who Started It" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:SpawnsView x:Name="SpawnsTab"/>
+            </TabItem>
+            <TabItem x:Name="BitsNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="📦" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Deliveries" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:BitsView x:Name="BitsTab"/>
+            </TabItem>
+
+            <!-- ═══ QUIET ═══ -->
+            <TabItem IsEnabled="False" Focusable="False">
+                <TabItem.Header>
+                    <TextBlock Text="QUIET" FontSize="10" FontWeight="Bold"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,10,0,2"
+                               ToolTip="Tools that make the machine quieter — sinkholes and antivirus health."/>
+                </TabItem.Header>
+            </TabItem>
+            <TabItem x:Name="BlackHoleNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🚫" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Black Hole" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:BlackHoleView x:Name="BlackHoleTab"/>
+            </TabItem>
+            <TabItem x:Name="DefenderNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🦠" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Defender" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:DefenderView x:Name="DefenderTab"/>
+            </TabItem>
+
+            <!-- ═══ SYSTEM ═══ -->
+            <TabItem IsEnabled="False" Focusable="False">
+                <TabItem.Header>
+                    <TextBlock Text="SYSTEM" FontSize="10" FontWeight="Bold"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,10,0,2"
+                               ToolTip="Privacy settings, Windows check-in cadence and the history recorder."/>
+                </TabItem.Header>
+            </TabItem>
+            <TabItem x:Name="PrivacyNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔐" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Privacy" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:PrivacyView x:Name="PrivacyTab"/>
+            </TabItem>
+            <TabItem x:Name="OneSettingsNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔄" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Windows Check-Ins" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:OneSettingsView x:Name="OneSettingsTab"/>
+            </TabItem>
+            <TabItem x:Name="SysmonNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏺" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Recorder" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:SysmonStatusView x:Name="SysmonTab"/>
+            </TabItem>
+        </TabControl>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Watchdog Status -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse x:Name="EnforcerDot" Width="8" Height="8" Fill="#00E5FF" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="EnforcerStatusText" Text="Watchdog: Active" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                </StackPanel>
+
+                <!-- Threat Alert -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock x:Name="ThreatAlertText" Text=""
+                               Foreground="#E5A631" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <Button x:Name="ReviewAlertBtn" Content="Review"
+                            Style="{StaticResource PrimaryButton}" Padding="8,2" FontSize="10" Margin="8,0,0,0"
+                            Visibility="Collapsed" Click="ReviewAlertBtn_Click"/>
+                </StackPanel>
+
+                <!-- Theme toggle: dark/light, remembered for next launch -->
+                <Button x:Name="ThemeToggleBtn" Grid.Column="2" Content="☀ Light"
+                        Style="{StaticResource PrimaryButton}" Padding="8,2" FontSize="10" Margin="0,0,12,0"
+                        ToolTip="Switch between the dark and light look. Applies instantly and is remembered."
+                        Click="ThemeToggleBtn_Click"/>
+
+                <!-- Version -->
+                <TextBlock x:Name="VersionText" Grid.Column="3" Text="LookSee"
+                           Foreground="#5A5A62" FontSize="10" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

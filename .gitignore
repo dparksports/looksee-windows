@@ -1,0 +1,23 @@
+bin/
+obj/
+Sdk/bin/
+Sdk/obj/
+ScratchTest/bin/
+ScratchTest/obj/
+*.zip
+*.csv
+.vs/
+.idea/
+Plugins/
+*.user
+publish_out/
+# SecurityEnforcer persisted check cadence (runtime data)
+check_interval.txt
+Assets/icons/
+PyTraceSelfTest/bin/
+PyTraceSelfTest/obj/
+publish/
+
+# telemetry deploy secret (never commit; see telemetry/server/DEPLOY.md)
+telemetry/server/admin-token.txt
+__pycache__/

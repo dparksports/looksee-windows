@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The OneSettings cadence engine, split from the CLI the same way
+       svchost-watch splits SvchostAnalyzer.Core: LookSee links this
+       library in-process for its OneSettings tab (the app manifest already
+       demands administrator, so the GUI path needs no UAC dance), while the
+       OneSettingsCadence.exe CLI stays a thin face with its own elevation
+       plumbing. One engine, two faces — what the tab applies is byte-identical
+       to what the CLI applies. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>OneSettingsCadence.Core</AssemblyName>
+    <RootNamespace>LookSee.OneSettingsCadence</RootNamespace>
+    <Product>OneSettingsCadence.Core</Product>
+    <Company>LookSee</Company>
+    <Description>Engine behind the LookSee OneSettings tab and the OneSettingsCadence CLI — slows the Windows inbox task \Microsoft\Windows\Flighting\OneSettings\RefreshCache to a user-chosen interval with timestamped backups, verification, rollback, a drift watchdog, and run-history compliance evidence.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- EventLogReader/EventLogConfiguration for the run-history compliance
+         reader (same package family the app pins for its event-channel work) -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.4.25258.110" />
+  </ItemGroup>
+
+</Project>
